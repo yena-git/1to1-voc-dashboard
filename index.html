@@ -360,47 +360,9 @@
 
 <script>
 // ═══════════════════════════════════════════════
-//  CONFIG — Google Sheets 웹에 게시 CSV URL
+//  CONFIG — Google Apps Script API URL
 // ═══════════════════════════════════════════════
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1fnNOdjj5A7SuHAazDoRCwGCHYDc86ZeINBQTQ1x6vf4/pub?gid=542823771&single=true&output=csv';
-
-// ═══════════════════════════════════════════════
-//  CSV PARSER
-// ═══════════════════════════════════════════════
-function parseCSV(text) {
-  const lines = [];
-  let inQuote = false, line = [], cell = '';
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"') { inQuote = !inQuote; }
-    else if (c === ',' && !inQuote) { line.push(cell.trim()); cell = ''; }
-    else if ((c === '\n' || c === '\r') && !inQuote) {
-      if (c === '\r' && text[i+1] === '\n') i++;
-      line.push(cell.trim()); lines.push(line); line = []; cell = '';
-    } else { cell += c; }
-  }
-  if (cell || line.length) { line.push(cell.trim()); lines.push(line); }
-  return lines;
-}
-
-function csvToRecords(text) {
-  const rows = parseCSV(text);
-  const records = [];
-  let lastGubun = '', lastDate = '';
-  for (let i = 2; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r[4]) continue;
-    const num = parseInt(r[4]);
-    if (isNaN(num)) continue;
-    if (r[0] && r[0].trim()) lastGubun = r[0].trim();
-    if (r[2] && r[2].trim()) lastDate  = r[2].trim();
-    const type = r[3] ? r[3].trim() : '';
-    const voc  = r[5] ? r[5].trim() : '';
-    if (!type && !voc) continue;
-    records.push({ gubun: lastGubun, date: lastDate, type, num, voc });
-  }
-  return records;
-}
+const API_URL = 'https://script.google.com/macros/s/AKfycbxB8rff29BWaZ_IXo1mvjP_u7Oh2plRL2Lzmj3xDqICidw5R8ntXE0fU8-MwwKtWBxucw/exec';
 
 // ═══════════════════════════════════════════════
 //  DATA (fallback — 연동 실패시 사용)
@@ -461,7 +423,7 @@ let RAW = [
 ];
 
 // ═══════════════════════════════════════════════
-//  FETCH DATA FROM GOOGLE SHEETS
+//  FETCH DATA FROM GOOGLE APPS SCRIPT
 // ═══════════════════════════════════════════════
 async function fetchData() {
   const btn  = document.getElementById('refresh-btn');
@@ -474,11 +436,10 @@ async function fetchData() {
   bar.textContent = '⏳ 스프레드시트에서 최신 데이터를 불러오는 중...';
 
   try {
-    const res = await fetch(CSV_URL, { cache: 'no-store' });
+    const res = await fetch(API_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    const parsed = csvToRecords(text);
-    if (parsed.length === 0) throw new Error('데이터가 비어있습니다');
+    const parsed = await res.json();
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('데이터가 비어있습니다');
 
     RAW = parsed;
     const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
